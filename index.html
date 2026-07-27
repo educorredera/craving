@@ -70,7 +70,6 @@
     h1{margin:0 0 var(--sp3);font-family:var(--font-display);font-size:var(--text-xl);line-height:.98;letter-spacing:-.03em;max-width:12ch;}
     .lead{margin:0;color:var(--muted);max-width:34ch;}
     .hero-actions{display:grid;gap:var(--sp3);margin-top:var(--sp5);}
-    /* .btn works for both <button> and <a> */
     .btn{width:100%;min-height:56px;border-radius:var(--radius-full);padding:0 1.25rem;font-weight:700;font-size:var(--text-sm);text-decoration:none;transition:transform var(--transition),background var(--transition),border-color var(--transition),opacity var(--transition),box-shadow var(--transition);display:flex;align-items:center;justify-content:center;gap:.5rem;}
     .btn:active{transform:scale(.982);}
     .btn-primary{background:var(--primary);color:var(--inverse);box-shadow:0 8px 28px color-mix(in srgb,var(--primary) 35%,transparent);}
@@ -123,6 +122,13 @@
     .timer-ticker.nudge{border-color:var(--warning);box-shadow:inset 0 0 22px color-mix(in srgb,var(--warning) 32%,transparent);}
     .timer-ticker.nudge span{color:var(--warning);text-shadow:0 0 6px color-mix(in srgb,var(--warning) 85%,transparent),0 0 12px color-mix(in srgb,var(--warning) 50%,transparent);}
     @keyframes tickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-100%);}}
+    /* LIGHT MODE LED: lighter box + strong dark text (red for the nudge), no neon glow */
+    [data-theme="light"] .timer-ticker{background:var(--surface2);border-color:color-mix(in srgb,var(--primary) 50%,transparent);box-shadow:inset 0 0 0 1px var(--border);}
+    [data-theme="light"] .timer-ticker span{color:var(--primary-h);text-shadow:none;}
+    [data-theme="light"] .timer-ticker.done{border-color:color-mix(in srgb,var(--success) 60%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--success) 25%,transparent);}
+    [data-theme="light"] .timer-ticker.done span{color:var(--success);text-shadow:none;}
+    [data-theme="light"] .timer-ticker.nudge{border-color:var(--danger);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 30%,transparent);}
+    [data-theme="light"] .timer-ticker.nudge span{color:var(--danger);text-shadow:none;}
     .overlay{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp6);background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(28px);padding:var(--sp8);}
     .overlay.active{display:flex;}
     .breath-title{font-family:var(--font-display);font-size:var(--text-xl);text-align:center;letter-spacing:-.02em;}
@@ -242,8 +248,9 @@
     .log-badge.skipped{background:color-mix(in srgb,var(--warning) 15%,transparent);color:var(--warning);}
     .log-badge.emergency{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);}
     .log-empty{text-align:center;color:var(--muted);font-size:var(--text-sm);padding:var(--sp6) 0;}
-    .toast-wrap{position:fixed;top:var(--sp8);left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:.5rem;pointer-events:none;}
-    .toast{padding:.7rem 1.2rem;border-radius:var(--radius-full);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);font-size:var(--text-sm);font-weight:600;color:var(--text);animation:toastIn .3s var(--transition) forwards;white-space:nowrap;}
+    /* Toast now respects the safe-area inset so it never hides behind the iOS status bar / Dynamic Island */
+    .toast-wrap{position:fixed;top:calc(env(safe-area-inset-top) + var(--sp3));left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:.5rem;pointer-events:none;width:max-content;max-width:calc(100vw - 2rem);}
+    .toast{padding:.7rem 1.2rem;border-radius:var(--radius-full);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);font-size:var(--text-sm);font-weight:600;color:var(--text);animation:toastIn .3s var(--transition) forwards;text-align:center;}
     .toast.success{background:color-mix(in srgb,var(--success) 12%,var(--surface));color:var(--success);border-color:color-mix(in srgb,var(--success) 25%,transparent);}
     .toast.warn{background:color-mix(in srgb,var(--warning) 14%,var(--surface));color:var(--warning);border-color:color-mix(in srgb,var(--warning) 30%,transparent);}
     @keyframes toastIn{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
@@ -561,7 +568,6 @@ const syncTheme = () => {
 };
 themeBtn.addEventListener('click', () => { theme = theme === 'dark' ? 'light' : 'dark'; syncTheme(); });
 syncTheme();
-// Platform detection (iOS needs sms:NUMBER&body=..., Android uses ?body=...)
 const IS_IOS = /iP(hone|od|ad)/.test(navigator.platform) || (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
 const srLive = document.getElementById('srLive');
 function announce(msg) { srLive.textContent = ''; setTimeout(() => { srLive.textContent = msg; }, 60); }
@@ -914,13 +920,11 @@ function stopBreath(natural) {
 }
 document.getElementById('breathBtn').addEventListener('click', startBreath);
 document.getElementById('breathClose').addEventListener('click', () => stopBreath(false));
-// ─── TRUSTED CONTACT + QUICK MESSAGE ──────────────────────────────────────────
 function getContact() { try { return JSON.parse(localStorage.getItem('ancla-contact')); } catch { return null; } }
 function setContact(name, phone) { localStorage.setItem('ancla-contact', JSON.stringify({ name, phone })); refreshContactUI(); }
 function removeContact() { localStorage.removeItem('ancla-contact'); refreshContactUI(); }
 function cleanPhone(phone) { return phone.replace(/[^\d+]/g, ''); }
 function telHref(phone) { return 'tel:' + cleanPhone(phone); }
-// iOS wants sms:NUMBER&body=... ; Android/others use sms:NUMBER?body=...
 function smsHref(phone, body) {
   const sep = IS_IOS ? '&' : '?';
   return 'sms:' + cleanPhone(phone) + sep + 'body=' + encodeURIComponent(body);
@@ -945,7 +949,6 @@ const emgDeleteBtn = document.getElementById('emgDelete');
 const emgContactForm = document.getElementById('emgContactForm');
 const emgContactName = document.getElementById('emgContactName');
 const emgContactPhone = document.getElementById('emgContactPhone');
-// Keep the native href of the call/SMS anchors up to date so iOS opens them.
 function refreshContactUI() {
   const c = getContact();
   if (c && c.phone) {
@@ -954,7 +957,6 @@ function refreshContactUI() {
     contactPhoneLabel.textContent = c.phone;
     contactEditBtn.textContent = '✎ Editar'; contactEditBtn.classList.remove('full');
     contactDeleteBtn.hidden = false; contactCallBtn.hidden = false; emgEditRow.hidden = false;
-    // Set real hrefs (native navigation is the most reliable on iOS)
     contactCallBtn.setAttribute('href', telHref(c.phone));
     emgCallBtn.setAttribute('href', telHref(c.phone));
     emgSmsBtn.setAttribute('href', smsHref(c.phone, getMessage()));
@@ -965,7 +967,6 @@ function refreshContactUI() {
     contactPhoneLabel.textContent = 'Lo usarás con un toque en Modo emergencia.';
     contactEditBtn.textContent = 'Añadir contacto'; contactEditBtn.classList.add('full');
     contactDeleteBtn.hidden = true; contactCallBtn.hidden = true; emgEditRow.hidden = true;
-    // No contact: keep them as "add" triggers (href neutralised)
     contactCallBtn.setAttribute('href', '#'); emgCallBtn.setAttribute('href', '#'); emgSmsBtn.setAttribute('href', '#');
     emgCallBtn.dataset.ready = '0'; emgSmsBtn.dataset.ready = '0'; contactCallBtn.dataset.ready = '0';
   }
@@ -984,12 +985,10 @@ document.getElementById('mainContactSave').addEventListener('click', () => {
   setContact(name, phone); mainContactForm.classList.remove('show'); showToast('Contacto guardado ✓', 'success');
 });
 contactDeleteBtn.addEventListener('click', () => { if (!confirm('¿Eliminar el contacto de confianza?')) return; removeContact(); mainContactForm.classList.remove('show'); showToast('Contacto eliminado'); });
-// If there is no contact yet, the call/SMS anchors act as "add contact" triggers.
 contactCallBtn.addEventListener('click', e => { if (contactCallBtn.dataset.ready !== '1') { e.preventDefault(); openMainForm(false); } });
 emgCallBtn.addEventListener('click', e => { if (emgCallBtn.dataset.ready !== '1') { e.preventDefault(); openEmgForm(false); } });
 emgSmsBtn.addEventListener('click', e => {
   if (emgSmsBtn.dataset.ready !== '1') { e.preventDefault(); openEmgForm(false); return; }
-  // Refresh the body right before navigating in case the message changed.
   const c = getContact();
   if (c && c.phone) emgSmsBtn.setAttribute('href', smsHref(c.phone, getMessage()));
 });
@@ -1017,7 +1016,6 @@ messageBox.addEventListener('input', () => {
   clearTimeout(msgTimeout);
   msgTimeout = setTimeout(() => {
     localStorage.setItem('ancla-message', messageBox.value);
-    // keep the SMS href in sync with the edited message
     const c = getContact(); if (c && c.phone) emgSmsBtn.setAttribute('href', smsHref(c.phone, getMessage()));
     msgSaved.classList.add('show'); setTimeout(() => msgSaved.classList.remove('show'), 1800);
   }, 500);
