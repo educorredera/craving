@@ -122,7 +122,6 @@
     .timer-ticker.nudge{border-color:var(--warning);box-shadow:inset 0 0 22px color-mix(in srgb,var(--warning) 32%,transparent);}
     .timer-ticker.nudge span{color:var(--warning);text-shadow:0 0 6px color-mix(in srgb,var(--warning) 85%,transparent),0 0 12px color-mix(in srgb,var(--warning) 50%,transparent);}
     @keyframes tickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-100%);}}
-    /* LIGHT MODE LED: lighter box + strong dark text (red for the nudge), no neon glow */
     [data-theme="light"] .timer-ticker{background:var(--surface2);border-color:color-mix(in srgb,var(--primary) 50%,transparent);box-shadow:inset 0 0 0 1px var(--border);}
     [data-theme="light"] .timer-ticker span{color:var(--primary-h);text-shadow:none;}
     [data-theme="light"] .timer-ticker.done{border-color:color-mix(in srgb,var(--success) 60%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--success) 25%,transparent);}
@@ -248,7 +247,6 @@
     .log-badge.skipped{background:color-mix(in srgb,var(--warning) 15%,transparent);color:var(--warning);}
     .log-badge.emergency{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);}
     .log-empty{text-align:center;color:var(--muted);font-size:var(--text-sm);padding:var(--sp6) 0;}
-    /* Toast now respects the safe-area inset so it never hides behind the iOS status bar / Dynamic Island */
     .toast-wrap{position:fixed;top:calc(env(safe-area-inset-top) + var(--sp3));left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:.5rem;pointer-events:none;width:max-content;max-width:calc(100vw - 2rem);}
     .toast{padding:.7rem 1.2rem;border-radius:var(--radius-full);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-md);font-size:var(--text-sm);font-weight:600;color:var(--text);animation:toastIn .3s var(--transition) forwards;text-align:center;}
     .toast.success{background:color-mix(in srgb,var(--success) 12%,var(--surface));color:var(--success);border-color:color-mix(in srgb,var(--success) 25%,transparent);}
@@ -750,6 +748,22 @@ function renderSequence() {
 function advanceStep() { const cur = currentStepIndex(); if (cur < stages.length) { checkedSteps.add(String(cur)); renderSequence(); } }
 function resetSequenceVisuals() { checkedSteps.clear(); activeStep = -1; allDoneAnnounced = false; clearNudge(); renderSequence(); }
 function scrollToTriggers() { setTimeout(() => { triggersCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 450); }
+// FULL RESET used by the "Fin" button: leaves the app as freshly opened.
+function resetSessionState() {
+  clearInterval(timerId); timerId = null; timerRunning = false; sessionActive = false; isEmergency = false;
+  sessionStartTime = null; activeStep = -1; lastAnnouncedStep = -1; allDoneAnnounced = false;
+  resetSequenceVisuals();                          // clears sequence steps
+  slider.value = '3';                              // intensity back to default 3
+  updateIntensity();                               // re-syncs countdown to 5 min (idle)
+  timerNote.textContent = DEFAULT_NOTE;
+  toggleTimerBtn.textContent = 'Iniciar';
+  hideTicker();
+  // triggers + mood
+  document.querySelectorAll('#chipSet .chip.active').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
+  document.querySelectorAll('#moodGrid .mood-btn.active').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
+  // mental dump
+  notesEl.value = ''; localStorage.removeItem('ancla-notes'); charCount.textContent = '0 caracteres';
+}
 function drawTimer() {
   const m = String(Math.floor(remaining / 60)).padStart(2, '0');
   const s = String(remaining % 60).padStart(2, '0');
@@ -1117,11 +1131,10 @@ document.querySelectorAll('.accordion-header').forEach(hdr => {
 });
 document.getElementById('seqAccordion').classList.add('open');
 document.querySelector('#seqAccordion .accordion-header').setAttribute('aria-expanded', 'true');
+// FIN: log the session, then fully reset the app (slider→3, countdown→5 min, steps, triggers, mental dump).
 document.getElementById('finishBtn').addEventListener('click', () => {
   const saved = finalizeSessionData();
-  document.querySelectorAll('#chipSet .chip.active').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
-  document.querySelectorAll('#moodGrid .mood-btn.active').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
-  notesEl.value = ''; localStorage.removeItem('ancla-notes'); charCount.textContent = '0 caracteres';
+  resetSessionState();
   window.scrollTo({ top: 0, behavior: 'smooth' });
   showToast(saved ? 'Sesión guardada. Cuídate 💙' : 'Sesión cerrada. Cuídate 💙', 'success');
 });
