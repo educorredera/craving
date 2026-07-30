@@ -9,6 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ANGELCRISTER" />
   <meta name="theme-color" content="#0d0f10" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+  <link rel="icon" href="apple-touch-icon.png" type="image/png" />
   <meta name="description" content="Herramienta de interrupción inmediata para atravesar el pico de craving sin actuar." />
   <style>
     :root {
@@ -223,9 +226,20 @@
     @keyframes pulseWarn{0%,100%{box-shadow:0 0 0 0 var(--ring-warning);}70%{box-shadow:0 0 0 16px rgba(255,177,107,0);}}
     .btn.suggest{border-color:var(--primary);color:var(--primary);animation:pulse 2.1s infinite;}
     .chips{display:flex;flex-wrap:wrap;gap:.6rem;}
-    .chip{padding:.65rem .9rem;border-radius:var(--radius-full);background:var(--surface-off);border:1px solid var(--border);color:var(--text);font-size:var(--text-sm);min-height:44px;transition:all var(--transition);user-select:none;}
+    .chip{padding:.65rem .9rem;border-radius:var(--radius-full);background:var(--surface-off);border:1px solid var(--border);color:var(--text);font-size:var(--text-sm);min-height:44px;transition:all var(--transition);user-select:none;display:inline-flex;align-items:center;gap:.35rem;}
     .chip:hover{transform:scale(1.03);}
     .chip.active{background:var(--primary-soft);color:var(--primary);border-color:color-mix(in srgb,var(--primary) 30%,transparent);}
+    .chip-other{border-style:dashed;color:var(--muted);}
+    .chip-other.active{color:var(--primary);border-style:solid;}
+    .chip-custom{padding-right:.55rem;}
+    .chip-x{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;font-size:.9rem;line-height:1;background:color-mix(in srgb,var(--text) 12%,transparent);color:var(--text);}
+    .chip.active .chip-x{background:color-mix(in srgb,var(--primary) 22%,transparent);}
+    .chip-x:hover{background:var(--danger-soft);color:var(--danger);}
+    .other-input{display:flex;gap:.5rem;margin-top:.7rem;}
+    .other-input[hidden]{display:none;}
+    .other-input input{flex:1;background:var(--surface-off);border:1px solid var(--border);border-radius:var(--radius-md);padding:.7rem .9rem;color:var(--text);min-height:44px;}
+    .other-input input:focus{border-color:var(--primary);outline:none;box-shadow:0 0 0 3px var(--primary-soft);}
+    .other-input .btn{width:auto;min-height:44px;padding:0 1.1rem;flex-shrink:0;}
     textarea,.editable{width:100%;background:var(--surface-off);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;color:var(--text);transition:border-color var(--transition),box-shadow var(--transition);line-height:1.6;}
     textarea{min-height:120px;resize:vertical;}
     textarea:focus,.editable:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);outline:none;}
@@ -501,17 +515,23 @@
           </article>
         </div>
         <article class="panel focus-card" id="triggersCard">
-          <div class="section-head"><div><h2>Disparadores</h2><p>márcalos rápido</p></div></div>
+          <div class="section-head"><div><h2>Disparadores</h2><p>marca todos los que apliquen</p></div></div>
           <div class="chips" id="chipSet" role="group" aria-label="Disparadores del craving">
             <button class="chip" aria-pressed="false">Soledad</button>
             <button class="chip" aria-pressed="false">Después del trabajo</button>
             <button class="chip" aria-pressed="false">Ansiedad</button>
+            <button class="chip" aria-pressed="false">Euforia</button>
             <button class="chip" aria-pressed="false">Aburrimiento</button>
             <button class="chip" aria-pressed="false">Dinero</button>
             <button class="chip" aria-pressed="false">Contacto</button>
             <button class="chip" aria-pressed="false">Noche</button>
             <button class="chip" aria-pressed="false">Redes sociales</button>
             <button class="chip" aria-pressed="false">Discusión</button>
+            <button class="chip chip-other" id="chipOther" aria-pressed="false">➕ Otros</button>
+          </div>
+          <div class="other-input" id="otherInputWrap" hidden>
+            <input id="otherInput" type="text" placeholder="Escribe el disparador" autocomplete="off" maxlength="40" aria-label="Nuevo disparador" />
+            <button class="btn btn-secondary" id="otherAddBtn">Añadir</button>
           </div>
           <div style="margin-top:var(--sp5)">
             <div class="section-head" style="margin-bottom:var(--sp3)"><div><h2>Estado ahora</h2><p>¿cómo estás?</p></div></div>
@@ -618,6 +638,7 @@ let sessionStartTime = null, sessionActive = false, isEmergency = false;
 let lastAnnouncedStep = -1, activeStep = -1, allDoneAnnounced = false;
 let pendingLogTs = null;
 let awaitingPending = false;
+let emergencyEnded = false;
 const circumference = 326.73;
 const progressRing = document.getElementById('progressRing');
 const timerDisplay = document.getElementById('timerDisplay');
@@ -789,7 +810,7 @@ function resetSequenceVisuals() { checkedSteps.clear(); activeStep = -1; allDone
 function scrollToTriggers() { setTimeout(() => { triggersCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 450); }
 function scrollToSequence() { setTimeout(() => { seqCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 450); }
 function resetSessionState() {
-  clearInterval(timerId); timerId = null; timerRunning = false; sessionActive = false; isEmergency = false; awaitingPending = false;
+  clearInterval(timerId); timerId = null; timerRunning = false; sessionActive = false; isEmergency = false; awaitingPending = false; emergencyEnded = false;
   sessionStartTime = null; activeStep = -1; lastAnnouncedStep = -1; allDoneAnnounced = false;
   resetSequenceVisuals();
   slider.value = '3';
@@ -798,6 +819,7 @@ function resetSessionState() {
   toggleTimerBtn.textContent = 'Iniciar';
   hideTicker();
   document.querySelectorAll('#chipSet .chip.active').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
+  otherInputWrap.hidden = true; otherInput.value = '';
   document.querySelectorAll('#moodGrid .mood-btn.active').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
   notesEl.value = ''; localStorage.removeItem('ancla-notes'); charCount.textContent = '0 caracteres';
 }
@@ -828,7 +850,7 @@ function finishTimer() {
   timerPhase.textContent = full ? '✓ Todos los pasos' : `Completaste ${doneCount} de ${total} pasos`;
   toggleTimerBtn.textContent = 'Reiniciar';
   logSession('timedout');
-  if (wasEmergency) { emgCloseBtn.textContent = 'Fin'; emgExitBtn.textContent = 'Fin'; }
+  if (wasEmergency) { emergencyEnded = true; emgCloseBtn.textContent = 'Fin'; emgExitBtn.textContent = 'Fin'; }
   if (full) {
     nextStepBtn.disabled = true; nextStepBtn.textContent = 'Protocolo completado ✓';
     emgNextBtn.disabled = true;  emgNextBtn.textContent = 'Tiempo cumplido';
@@ -865,7 +887,7 @@ function onPendingStepMarked() {
     timerNote.textContent = '¡Todos los pasos hechos! Marca tus disparadores, escribe la descarga mental y pulsa Fin.';
     setTicker('★ TODOS LOS PASOS HECHOS · MARCA DISPARADORES, ESCRIBE LA DESCARGA MENTAL Y PULSA FIN ★', 'done');
     showToast('¡Todos los pasos hechos! 🎉', 'success');
-    scrollToTriggers();
+    if (!isEmergency) scrollToTriggers();
   } else {
     nextStepBtn.textContent = markStepLabel();
     emgNextBtn.textContent = markStepLabel();
@@ -944,7 +966,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     e.preventDefault();
     if (open.id === 'breathOverlay') stopBreath(false);
-    else if (open.id === 'emergencyMode') exitEmergency();
+    else if (open.id === 'emergencyMode') onEmergencyExitClick();
     else if (open.id === 'settingsOverlay') closeSettings();
     return;
   }
@@ -1009,6 +1031,77 @@ function stopBreath(natural) {
 }
 document.getElementById('breathBtn').addEventListener('click', startBreath);
 document.getElementById('breathClose').addEventListener('click', () => stopBreath(false));
+// ─── TRIGGERS (multi-select + custom, persisted) ──────────────────────────────
+const chipSet = document.getElementById('chipSet');
+const chipOther = document.getElementById('chipOther');
+const otherInputWrap = document.getElementById('otherInputWrap');
+const otherInput = document.getElementById('otherInput');
+const otherAddBtn = document.getElementById('otherAddBtn');
+function getCustomTriggers() { try { return JSON.parse(localStorage.getItem('ancla-custom-triggers') || '[]'); } catch { return []; } }
+function saveCustomTriggers(list) { localStorage.setItem('ancla-custom-triggers', JSON.stringify(list)); }
+function createCustomChip(label, active) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'chip chip-custom' + (active ? ' active' : '');
+  chip.dataset.label = label;
+  chip.setAttribute('aria-pressed', String(!!active));
+  chip.innerHTML = escapeHtml(label) + ' <span class="chip-x" aria-hidden="true">×</span>';
+  return chip;
+}
+function renderCustomTriggers() {
+  getCustomTriggers().forEach(label => chipSet.insertBefore(createCustomChip(label, false), chipOther));
+}
+function addCustomTrigger(label, activate) {
+  const norm = label.toLowerCase();
+  const existing = [...chipSet.querySelectorAll('.chip')].find(c => c !== chipOther && (c.dataset.label || c.textContent).trim().toLowerCase() === norm);
+  if (existing) {
+    if (activate) { existing.classList.add('active'); existing.setAttribute('aria-pressed', 'true'); }
+    showToast('Ese disparador ya existe');
+    return;
+  }
+  chipSet.insertBefore(createCustomChip(label, activate), chipOther);
+  const list = getCustomTriggers();
+  if (!list.some(x => x.toLowerCase() === norm)) { list.push(label); saveCustomTriggers(list); }
+  showToast('Disparador añadido ✓', 'success');
+}
+function removeCustomChip(chip) {
+  const label = (chip.dataset.label || '').trim();
+  chip.remove();
+  saveCustomTriggers(getCustomTriggers().filter(x => x.toLowerCase() !== label.toLowerCase()));
+  showToast('Disparador eliminado');
+}
+function toggleOtherInput(chip) {
+  const show = !chip.classList.contains('active');
+  chip.classList.toggle('active', show);
+  chip.setAttribute('aria-pressed', String(show));
+  otherInputWrap.hidden = !show;
+  if (show) { otherInput.value = ''; setTimeout(() => otherInput.focus(), 20); }
+}
+function commitOtherInput() {
+  const label = otherInput.value.trim();
+  if (!label) { otherInput.focus(); return; }
+  addCustomTrigger(label, true);
+  otherInput.value = '';
+  otherInputWrap.hidden = true;
+  chipOther.classList.remove('active'); chipOther.setAttribute('aria-pressed', 'false');
+}
+function collectTriggers() {
+  return [...chipSet.querySelectorAll('.chip.active')]
+    .filter(c => c !== chipOther)
+    .map(c => (c.dataset.label || c.textContent).trim())
+    .filter(Boolean);
+}
+chipSet.addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  if (e.target.classList.contains('chip-x')) { removeCustomChip(chip); return; }
+  if (chip === chipOther) { toggleOtherInput(chip); return; }
+  const active = chip.classList.toggle('active');
+  chip.setAttribute('aria-pressed', String(active));
+});
+otherAddBtn.addEventListener('click', commitOtherInput);
+otherInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitOtherInput(); } });
+// ─── CONTACT + QUICK MESSAGE ──────────────────────────────────────────────────
 function getContact() { try { return JSON.parse(localStorage.getItem('ancla-contact')); } catch { return null; } }
 function setContact(name, phone) { localStorage.setItem('ancla-contact', JSON.stringify({ name, phone })); refreshContactUI(); }
 function removeContact() { localStorage.removeItem('ancla-contact'); refreshContactUI(); }
@@ -1151,7 +1244,7 @@ function enterEmergency() {
   if (breathOverlay.classList.contains('active')) stopBreath(false);
   if (settingsOverlay.classList.contains('active')) { settingsOverlay.classList.remove('active'); }
   mainContactForm.classList.remove('show'); clearNudge(); hideTicker();
-  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;
+  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT; emergencyEnded = false;
   const v = parseInt(slider.value); const mins = v >= 9 ? 15 : 10;
   timerTotal = mins * 60; remaining = timerTotal;
   document.querySelectorAll('.tsel').forEach(b => b.classList.toggle('active', parseInt(b.dataset.mins) === mins));
@@ -1172,31 +1265,42 @@ function emergencyFinishUI(doneCount, total) {
   hideEmgBreath();
   emgStepEl.textContent = 'Tiempo cumplido';
   emgTitleEl.textContent = (doneCount >= total) ? 'El pico ha pasado' : `Completaste ${doneCount} de ${total} pasos`;
-  emgNoteEl.textContent = 'Bebe agua. No hagas nada automático. Cuando estés listo, sal con calma.';
+  emgNoteEl.textContent = 'El pico ha pasado. Pulsa Fin para registrar tus disparadores y la descarga mental.';
   triggerVibration([100, 50, 100]);
 }
-// Salir del modo emergencia = mismo reseteo completo que el botón Fin del modo normal.
+function closeEmergencyToTriggers() {
+  stopEmergencyBreath(); emgBreathWrap.hidden = true; clearNudge();
+  emergencyMode.classList.remove('active'); document.body.classList.remove('no-scroll');
+  emgContactForm.classList.remove('show');
+  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;
+  emergencyEnded = false;
+  isEmergency = false;
+  timerNote.textContent = 'Marca tus disparadores, escribe la descarga mental y pulsa Fin.';
+  if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus();
+  scrollToTriggers();
+  announce('Marca tus disparadores y escribe la descarga mental. Luego pulsa Fin para guardar.');
+}
 function exitEmergency() {
   stopEmergencyBreath(); emgBreathWrap.hidden = true; clearNudge();
-  // Si el temporizador seguía activo (salida temprana), registra la sesión como saltada.
   if (timerRunning || (remaining > 0 && remaining < timerTotal)) {
     clearInterval(timerId); timerId = null; timerRunning = false;
     logSession('skipped');
   }
-  // Consolida en el historial la sesión pendiente (igual que el botón Fin).
   finalizeSessionData();
-  // Cierra el overlay y restaura etiquetas de los botones.
   emergencyMode.classList.remove('active'); document.body.classList.remove('no-scroll');
   emgContactForm.classList.remove('show');
   emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;
-  // Reset completo de controles: slider→3, cuenta atrás→5 min, secuencia, disparadores y descarga mental.
   resetSessionState();
   if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus();
 }
+function onEmergencyExitClick() {
+  if (emergencyEnded) closeEmergencyToTriggers();
+  else exitEmergency();
+}
 document.getElementById('emergencyBtn').addEventListener('click', enterEmergency);
 document.getElementById('emergencyFab').addEventListener('click', enterEmergency);
-emgCloseBtn.addEventListener('click', exitEmergency);
-emgExitBtn.addEventListener('click', exitEmergency);
+emgCloseBtn.addEventListener('click', onEmergencyExitClick);
+emgExitBtn.addEventListener('click', onEmergencyExitClick);
 refreshContactUI();
 flowItems.forEach(item => {
   const activate = () => {
@@ -1225,9 +1329,6 @@ document.getElementById('finishBtn').addEventListener('click', () => {
   resetSessionState();
   window.scrollTo({ top: 0, behavior: 'smooth' });
   showToast(saved ? 'Sesión guardada. Cuídate 💙' : 'Sesión cerrada. Cuídate 💙', 'success');
-});
-document.querySelectorAll('#chipSet .chip').forEach(chip => {
-  chip.addEventListener('click', () => { const active = chip.classList.toggle('active'); chip.setAttribute('aria-pressed', String(active)); });
 });
 document.querySelectorAll('#moodGrid .mood-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1258,7 +1359,7 @@ function logSession(status) {
     ts, status, emergency: isEmergency,
     intensity: parseInt(slider.value),
     mood: document.querySelector('#moodGrid .mood-btn.active')?.dataset.mood || null,
-    triggers: [...document.querySelectorAll('#chipSet .chip.active')].map(c => c.textContent),
+    triggers: collectTriggers(),
     steps: checkedSteps.size,
     stepsTotal: stages.length,
     notes: (notesEl.value || '').trim(),
@@ -1281,7 +1382,7 @@ function finalizeSessionData() {
   const rec = log.find(r => r.ts === pendingLogTs);
   if (rec) {
     rec.mood = document.querySelector('#moodGrid .mood-btn.active')?.dataset.mood || null;
-    rec.triggers = [...document.querySelectorAll('#chipSet .chip.active')].map(c => c.textContent);
+    rec.triggers = collectTriggers();
     rec.notes = (notesEl.value || '').trim();
     rec.steps = checkedSteps.size;
     saveLog(log); renderLog();
@@ -1342,6 +1443,7 @@ document.getElementById('clearLogBtn').addEventListener('click', () => {
 });
 document.getElementById('topBtn').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 function triggerVibration(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
+renderCustomTriggers();
 updateBreathRoundsUI();
 updateStats(); renderLog(); updateIntensity(); renderSequence(); drawTimer();
 if (!getContact() || !hasSavedMessage()) { setTimeout(() => openSettings(true), 400); }
