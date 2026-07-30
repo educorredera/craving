@@ -62,7 +62,6 @@
     .topbar-actions{display:flex;gap:var(--sp2);align-items:center;}
     .icon-btn{width:44px;height:44px;border-radius:999px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;box-shadow:var(--shadow-sm);transition:background var(--transition),transform var(--transition);font-size:1.1rem;}
     .icon-btn:hover{background:var(--surface-off);transform:scale(1.05);}
-    /* height matched to the 44px icon buttons so all three align */
     .streak-pill{display:flex;align-items:center;gap:.4rem;height:44px;padding:0 .9rem;border-radius:var(--radius-full);background:var(--primary-soft);border:1px solid color-mix(in srgb,var(--primary) 30%,transparent);font-size:var(--text-sm);color:var(--primary);font-weight:700;}
     .panel{background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 92%,transparent),color-mix(in srgb,var(--surface2) 96%,transparent));border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-md);transition:box-shadow var(--transition);}
     .panel:hover{box-shadow:var(--shadow-lg);}
@@ -634,6 +633,11 @@ const timerTicker = document.getElementById('timerTicker');
 const timerTickerText = document.getElementById('timerTickerText');
 const triggersCard = document.getElementById('triggersCard');
 const seqCard = document.getElementById('seqAccordion');
+// emergency exit buttons + their original labels (restored when re-entering)
+const emgCloseBtn = document.getElementById('emgClose');
+const emgExitBtn = document.getElementById('emgExitBtn');
+const EMG_CLOSE_TXT = 'Ya estoy mejor ✕';
+const EMG_EXIT_TXT = 'Ya estoy mejor — salir';
 const DEFAULT_NOTE = 'No hables con el craving. Espera a que baje el pico.';
 const stages = [
   { title: 'Bloquea el gesto',     note: 'Pon modo avión o deja el móvil boca abajo y aléjalo un minuto.' },
@@ -652,6 +656,12 @@ const emgBreathWrap = document.getElementById('emgBreathWrap');
 const flowItems = document.querySelectorAll('.flow-item');
 let checkedSteps = new Set();
 function currentStepIndex() { for (let i = 0; i < stages.length; i++) { if (!checkedSteps.has(String(i))) return i; } return stages.length; }
+// Label for the "mark step" button: reference the step you are about to mark.
+function markStepLabel() {
+  const next = currentStepIndex();               // first unchecked step
+  if (next >= stages.length) return '✓ Marcar paso';
+  return `✓ Marcar paso ${next + 1} de ${stages.length}`;
+}
 function paintRealProgress(markPending) {
   const done = checkedSteps.size;
   flowItems.forEach((it, i) => {
@@ -820,6 +830,7 @@ function finishTimer() {
   timerPhase.textContent = full ? '✓ Todos los pasos' : `Completaste ${doneCount} de ${total} pasos`;
   toggleTimerBtn.textContent = 'Reiniciar';
   logSession('timedout');
+  if (wasEmergency) { emgCloseBtn.textContent = 'Fin'; emgExitBtn.textContent = 'Fin'; }
   if (full) {
     nextStepBtn.disabled = true; nextStepBtn.textContent = 'Protocolo completado ✓';
     emgNextBtn.disabled = true;  emgNextBtn.textContent = 'Tiempo cumplido';
@@ -831,8 +842,8 @@ function finishTimer() {
     triggerVibration([100, 50, 100]);
     if (!wasEmergency) scrollToTriggers();
   } else {
-    nextStepBtn.disabled = false; nextStepBtn.textContent = `✓ Marcar paso (${doneCount}/${total})`;
-    emgNextBtn.disabled = false;  emgNextBtn.textContent = `✓ Marcar paso (${doneCount}/${total})`;
+    nextStepBtn.disabled = false; nextStepBtn.textContent = markStepLabel();
+    emgNextBtn.disabled = false;  emgNextBtn.textContent = markStepLabel();
     timerNote.textContent = `Tiempo cumplido. Te faltan ${total - doneCount} paso(s): márcalos si los hiciste y pulsa Fin.`;
     setTicker(`★ TIEMPO CUMPLIDO · COMPLETASTE ${doneCount} DE ${total} PASOS · MARCA LOS QUE HICISTE Y PULSA FIN ★`, 'nudge');
     if (wasEmergency) emergencyFinishUI(doneCount, total);
@@ -858,8 +869,8 @@ function onPendingStepMarked() {
     showToast('¡Todos los pasos hechos! 🎉', 'success');
     scrollToTriggers();
   } else {
-    nextStepBtn.textContent = `✓ Marcar paso (${doneCount}/${total})`;
-    emgNextBtn.textContent = `✓ Marcar paso (${doneCount}/${total})`;
+    nextStepBtn.textContent = markStepLabel();
+    emgNextBtn.textContent = markStepLabel();
     timerPhase.textContent = `Completaste ${doneCount} de ${total} pasos`;
     timerNote.textContent = `Te faltan ${total - doneCount} paso(s): márcalos si los hiciste y pulsa Fin.`;
   }
@@ -1142,6 +1153,7 @@ function enterEmergency() {
   if (breathOverlay.classList.contains('active')) stopBreath(false);
   if (settingsOverlay.classList.contains('active')) { settingsOverlay.classList.remove('active'); }
   mainContactForm.classList.remove('show'); clearNudge(); hideTicker();
+  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;   // restore labels
   const v = parseInt(slider.value); const mins = v >= 9 ? 15 : 10;
   timerTotal = mins * 60; remaining = timerTotal;
   document.querySelectorAll('.tsel').forEach(b => b.classList.toggle('active', parseInt(b.dataset.mins) === mins));
@@ -1153,13 +1165,13 @@ function enterEmergency() {
   emgClockEl.textContent = String(mins).padStart(2, '0') + ':00'; emgBarFill.style.width = '100%';
   lastFocusedEl = document.activeElement;
   emergencyMode.classList.add('active'); document.body.classList.add('no-scroll');
-  document.getElementById('emgExitBtn').focus();
+  emgExitBtn.focus();
   startTimer();
   triggerVibration([200, 100, 200, 100, 200]);
   announce('Modo emergencia activado. Empieza por el paso 1.');
 }
 function emergencyFinishUI(doneCount, total) {
-  hideEmgBreath(); emgBreathWord.textContent = '✓';
+  hideEmgBreath();
   emgStepEl.textContent = 'Tiempo cumplido';
   emgTitleEl.textContent = (doneCount >= total) ? 'El pico ha pasado' : `Completaste ${doneCount} de ${total} pasos`;
   emgNoteEl.textContent = 'Bebe agua. No hagas nada automático. Cuando estés listo, sal con calma.';
@@ -1171,14 +1183,15 @@ function exitEmergency() {
   isEmergency = false; sessionActive = false; awaitingPending = false;
   emergencyMode.classList.remove('active'); document.body.classList.remove('no-scroll');
   emgContactForm.classList.remove('show');
+  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;   // reset for next time
   remaining = timerTotal; resetSequenceVisuals();
   timerNote.textContent = DEFAULT_NOTE; toggleTimerBtn.textContent = 'Iniciar'; drawTimer();
   if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus();
 }
 document.getElementById('emergencyBtn').addEventListener('click', enterEmergency);
 document.getElementById('emergencyFab').addEventListener('click', enterEmergency);
-document.getElementById('emgClose').addEventListener('click', exitEmergency);
-document.getElementById('emgExitBtn').addEventListener('click', exitEmergency);
+emgCloseBtn.addEventListener('click', exitEmergency);
+emgExitBtn.addEventListener('click', exitEmergency);
 refreshContactUI();
 flowItems.forEach(item => {
   const activate = () => {
