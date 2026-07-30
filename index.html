@@ -633,7 +633,6 @@ const timerTicker = document.getElementById('timerTicker');
 const timerTickerText = document.getElementById('timerTickerText');
 const triggersCard = document.getElementById('triggersCard');
 const seqCard = document.getElementById('seqAccordion');
-// emergency exit buttons + their original labels (restored when re-entering)
 const emgCloseBtn = document.getElementById('emgClose');
 const emgExitBtn = document.getElementById('emgExitBtn');
 const EMG_CLOSE_TXT = 'Ya estoy mejor ✕';
@@ -656,9 +655,8 @@ const emgBreathWrap = document.getElementById('emgBreathWrap');
 const flowItems = document.querySelectorAll('.flow-item');
 let checkedSteps = new Set();
 function currentStepIndex() { for (let i = 0; i < stages.length; i++) { if (!checkedSteps.has(String(i))) return i; } return stages.length; }
-// Label for the "mark step" button: reference the step you are about to mark.
 function markStepLabel() {
-  const next = currentStepIndex();               // first unchecked step
+  const next = currentStepIndex();
   if (next >= stages.length) return '✓ Marcar paso';
   return `✓ Marcar paso ${next + 1} de ${stages.length}`;
 }
@@ -1153,7 +1151,7 @@ function enterEmergency() {
   if (breathOverlay.classList.contains('active')) stopBreath(false);
   if (settingsOverlay.classList.contains('active')) { settingsOverlay.classList.remove('active'); }
   mainContactForm.classList.remove('show'); clearNudge(); hideTicker();
-  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;   // restore labels
+  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;
   const v = parseInt(slider.value); const mins = v >= 9 ? 15 : 10;
   timerTotal = mins * 60; remaining = timerTotal;
   document.querySelectorAll('.tsel').forEach(b => b.classList.toggle('active', parseInt(b.dataset.mins) === mins));
@@ -1177,15 +1175,22 @@ function emergencyFinishUI(doneCount, total) {
   emgNoteEl.textContent = 'Bebe agua. No hagas nada automático. Cuando estés listo, sal con calma.';
   triggerVibration([100, 50, 100]);
 }
+// Salir del modo emergencia = mismo reseteo completo que el botón Fin del modo normal.
 function exitEmergency() {
   stopEmergencyBreath(); emgBreathWrap.hidden = true; clearNudge();
-  if (timerRunning || (remaining > 0 && remaining < timerTotal)) { clearInterval(timerId); timerId = null; timerRunning = false; logSession('skipped'); }
-  isEmergency = false; sessionActive = false; awaitingPending = false;
+  // Si el temporizador seguía activo (salida temprana), registra la sesión como saltada.
+  if (timerRunning || (remaining > 0 && remaining < timerTotal)) {
+    clearInterval(timerId); timerId = null; timerRunning = false;
+    logSession('skipped');
+  }
+  // Consolida en el historial la sesión pendiente (igual que el botón Fin).
+  finalizeSessionData();
+  // Cierra el overlay y restaura etiquetas de los botones.
   emergencyMode.classList.remove('active'); document.body.classList.remove('no-scroll');
   emgContactForm.classList.remove('show');
-  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;   // reset for next time
-  remaining = timerTotal; resetSequenceVisuals();
-  timerNote.textContent = DEFAULT_NOTE; toggleTimerBtn.textContent = 'Iniciar'; drawTimer();
+  emgCloseBtn.textContent = EMG_CLOSE_TXT; emgExitBtn.textContent = EMG_EXIT_TXT;
+  // Reset completo de controles: slider→3, cuenta atrás→5 min, secuencia, disparadores y descarga mental.
+  resetSessionState();
   if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus();
 }
 document.getElementById('emergencyBtn').addEventListener('click', enterEmergency);
