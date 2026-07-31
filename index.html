@@ -266,6 +266,18 @@
     .log-badge.skipped{background:color-mix(in srgb,var(--warning) 15%,transparent);color:var(--warning);}
     .log-badge.emergency{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);}
     .log-empty{text-align:center;color:var(--muted);font-size:var(--text-sm);padding:var(--sp6) 0;}
+
+    .ai-card{padding:var(--sp5);}
+    .ai-prompt-list{display:grid;gap:.6rem;margin:.8rem 0 var(--sp4);}
+    .ai-prompt-option{display:flex;align-items:flex-start;gap:.7rem;width:100%;text-align:left;min-height:48px;padding:.8rem .9rem;border-radius:var(--radius-lg);background:color-mix(in srgb,var(--surface-off) 76%,transparent);border:1px solid var(--border);color:var(--text);transition:all var(--transition);}
+    .ai-prompt-option:hover{transform:translateX(2px);background:color-mix(in srgb,var(--surface-off) 90%,var(--primary) 5%);}
+    .ai-prompt-option.active{border-color:color-mix(in srgb,var(--primary) 35%,transparent);background:var(--primary-soft);color:var(--primary);}
+    .ai-prompt-option .ai-ico{flex:0 0 1.35rem;line-height:1.2;font-size:1.15rem;}
+    .ai-prompt-option b{display:block;font-size:var(--text-sm);line-height:1.2;margin-bottom:.15rem;color:inherit;}
+    .ai-prompt-option small{display:block;font-size:var(--text-xs);color:var(--muted);line-height:1.35;}
+    .ai-prompt-option.active small{color:color-mix(in srgb,var(--primary) 78%,var(--muted));}
+    .ai-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp3);}
+    .ai-note{margin:.75rem 0 0;font-size:var(--text-xs);color:var(--faint);line-height:1.45;}
     .data-actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp3);margin-top:var(--sp4);}
     .data-hint{font-size:var(--text-xs);color:var(--faint);margin:.6rem 0 0;line-height:1.4;}
     .toast-wrap{position:fixed;top:calc(env(safe-area-inset-top) + var(--sp3));left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:.5rem;pointer-events:none;width:max-content;max-width:calc(100vw - 2rem);}
@@ -472,6 +484,27 @@
             <button class="btn btn-ghost" id="skipTimerBtn" style="font-size:var(--text-xs);min-height:44px">Ya pasó — registrar y continuar</button>
           </div>
         </article>
+
+        <article class="panel ai-card" id="aiCard">
+          <div class="section-head">
+            <div>
+              <h2>Hablar con IA</h2>
+              <p>usa Perplexity sin guardar credenciales</p>
+            </div>
+          </div>
+          <div class="ai-prompt-list" id="aiPromptList" role="radiogroup" aria-label="Prompts para hablar con IA">
+            <button class="ai-prompt-option active" data-ai-prompt="craving" role="radio" aria-checked="true"><span class="ai-ico" aria-hidden="true">🫁</span><span><b>Pico de craving</b><small>Dame una ayuda breve para los próximos 5 minutos.</small></span></button>
+            <button class="ai-prompt-option" data-ai-prompt="contactar" role="radio" aria-checked="false"><span class="ai-ico" aria-hidden="true">📵</span><span><b>Quiero contactar</b><small>Ayúdame a no escribir, llamar ni negociar conmigo.</small></span></button>
+            <button class="ai-prompt-option" data-ai-prompt="negociacion" role="radio" aria-checked="false"><span class="ai-ico" aria-hidden="true">🧠</span><span><b>Estoy negociando</b><small>Desmonta las excusas típicas del craving.</small></span></button>
+            <button class="ai-prompt-option" data-ai-prompt="explicacion" role="radio" aria-checked="false"><span class="ai-ico" aria-hidden="true">🌊</span><span><b>Qué está pasando</b><small>Explícame por qué sube y baja esta ola.</small></span></button>
+            <button class="ai-prompt-option" data-ai-prompt="anclaje" role="radio" aria-checked="false"><span class="ai-ico" aria-hidden="true">⚓</span><span><b>Frase de anclaje</b><small>Dame una frase corta para repetir ahora.</small></span></button>
+          </div>
+          <div class="ai-actions">
+            <button class="btn btn-secondary" id="copyAiPromptBtn">📋 Copiar prompt</button>
+            <button class="btn btn-primary" id="openPerplexityBtn">↗ Abrir Perplexity</button>
+          </div>
+          <p class="ai-note">ANGELCRISTER no guarda ni ve tus credenciales. Solo copia una pregunta y abre Perplexity; tú decides qué pegar o añadir.</p>
+        </article>
         <div class="accordion" id="seqAccordion">
           <article class="panel">
             <div class="accordion-header" role="button" aria-expanded="true" aria-controls="seqBody" tabindex="0">
@@ -642,6 +675,7 @@ function updateIntensity() {
 }
 slider.addEventListener('input', updateIntensity);
 let timerTotal = 300, remaining = timerTotal, timerId = null, timerRunning = false;
+let timerEndAt = null, timerFinished = false;
 let sessionStartTime = null, sessionActive = false, isEmergency = false;
 let lastAnnouncedStep = -1, activeStep = -1, allDoneAnnounced = false;
 let pendingLogTs = null;
@@ -818,7 +852,7 @@ function resetSequenceVisuals() { checkedSteps.clear(); activeStep = -1; allDone
 function scrollToTriggers() { setTimeout(() => { triggersCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 450); }
 function scrollToSequence() { setTimeout(() => { seqCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 450); }
 function resetSessionState() {
-  clearInterval(timerId); timerId = null; timerRunning = false; sessionActive = false; isEmergency = false; awaitingPending = false; emergencyEnded = false;
+  clearInterval(timerId); timerId = null; timerEndAt = null; timerFinished = false; timerRunning = false; sessionActive = false; isEmergency = false; awaitingPending = false; emergencyEnded = false;
   sessionStartTime = null; activeStep = -1; lastAnnouncedStep = -1; allDoneAnnounced = false;
   resetSequenceVisuals();
   slider.value = '3';
@@ -842,9 +876,32 @@ function drawTimer() {
   else progressRing.style.stroke = 'var(--success)';
   if (isEmergency) { emgClockEl.textContent = `${m}:${s}`; emgBarFill.style.width = (pct * 100) + '%'; }
 }
-function stopTimer(skipLog) { clearInterval(timerId); timerId = null; timerRunning = false; toggleTimerBtn.textContent = remaining > 0 ? 'Reanudar' : 'Reiniciar'; if (!skipLog) logSession('paused'); }
+
+function syncTimerFromClock(allowFinish = true) {
+  if (!timerRunning || !timerEndAt || timerFinished) return;
+  remaining = Math.max(0, Math.ceil((timerEndAt - Date.now()) / 1000));
+  if (remaining <= 0) {
+    remaining = 0;
+    if (allowFinish) finishTimer();
+    else drawTimer();
+  } else {
+    drawTimer();
+  }
+}
+function refreshTimerAfterBackground() {
+  if (timerRunning) syncTimerFromClock(true);
+}
+function stopTimer(skipLog) {
+  if (timerRunning && timerEndAt && !timerFinished) remaining = Math.max(0, Math.ceil((timerEndAt - Date.now()) / 1000));
+  clearInterval(timerId); timerId = null; timerEndAt = null; timerRunning = false;
+  drawTimer();
+  toggleTimerBtn.textContent = remaining > 0 ? 'Reanudar' : 'Reiniciar';
+  if (!skipLog) logSession('paused');
+}
 function finishTimer() {
-  clearInterval(timerId); timerId = null; timerRunning = false;
+  if (timerFinished) return;
+  timerFinished = true;
+  clearInterval(timerId); timerId = null; timerEndAt = null; timerRunning = false;
   clearNudge(); remaining = 0; drawTimer();
   const doneCount = checkedSteps.size;
   const total = stages.length;
@@ -904,7 +961,7 @@ function onPendingStepMarked() {
   }
 }
 function skipTimer() {
-  clearInterval(timerId); timerId = null; timerRunning = false;
+  clearInterval(timerId); timerId = null; timerEndAt = null; timerFinished = true; timerRunning = false;
   clearNudge(); sessionStartTime = sessionStartTime || new Date();
   remaining = 0; drawTimer();
   const doneCount = checkedSteps.size;
@@ -923,12 +980,14 @@ function skipTimer() {
 }
 function startTimer() {
   if (remaining === 0) { remaining = timerTotal; timerNote.textContent = DEFAULT_NOTE; }
-  sessionActive = true; activeStep = -1; lastAnnouncedStep = -1; allDoneAnnounced = false; awaitingPending = false;
+  sessionActive = true; activeStep = -1; lastAnnouncedStep = -1; allDoneAnnounced = false; awaitingPending = false; timerFinished = false;
   document.getElementById('seqAccordion').classList.add('open');
   document.querySelector('#seqAccordion .accordion-header').setAttribute('aria-expanded', 'true');
   sessionStartTime = sessionStartTime || new Date();
   toggleTimerBtn.textContent = 'Pausar'; timerRunning = true;
-  timerId = setInterval(() => { remaining--; if (remaining <= 0) finishTimer(); else drawTimer(); }, 1000);
+  timerEndAt = Date.now() + (remaining * 1000);
+  clearInterval(timerId);
+  timerId = setInterval(() => syncTimerFromClock(true), 1000);
   renderSequence(); drawTimer();
 }
 toggleTimerBtn.addEventListener('click', () => { if (timerRunning) stopTimer(true); else startTimer(); });
@@ -1291,7 +1350,7 @@ function closeEmergencyToTriggers() {
 function exitEmergency() {
   stopEmergencyBreath(); emgBreathWrap.hidden = true; clearNudge();
   if (timerRunning || (remaining > 0 && remaining < timerTotal)) {
-    clearInterval(timerId); timerId = null; timerRunning = false;
+    clearInterval(timerId); timerId = null; timerEndAt = null; timerFinished = true; timerRunning = false;
     logSession('skipped');
   }
   finalizeSessionData();
@@ -1449,6 +1508,27 @@ document.getElementById('clearLogBtn').addEventListener('click', () => {
   if (!confirm('¿Borrar todo el historial?')) return;
   localStorage.removeItem('ancla-log'); updateStats(); renderLog(); showToast('Historial borrado');
 });
+
+// ─── HABLAR CON IA (Perplexity, sin credenciales en la app) ───────────────────
+const AI_PROMPTS = {
+  craving: 'Estoy en un pico de craving. Respóndeme en español, de forma breve, práctica y sin juicio. Dame 5 acciones concretas para atravesar los próximos 5 minutos sin actuar por impulso. No hagas terapia larga; ayúdame a bajar intensidad ahora.',
+  contactar: 'Tengo mucho impulso de contactar, escribir, llamar o hacer algo que sé que luego me perjudica. Respóndeme en español, breve y sin juicio. Ayúdame a no actuar durante los próximos 10 minutos con pasos concretos y una frase para repetir.',
+  negociacion: 'Estoy negociando conmigo durante un craving. Respóndeme en español y de forma breve. Señala las excusas típicas que usa el craving y dame una respuesta práctica para cada una. Quiero aguantar sin actuar ahora.',
+  explicacion: 'Explícame en español, de forma sencilla y breve, qué es un pico de craving, por qué sube y baja como una ola, y qué puedo hacer ahora para atravesarlo sin obedecerlo. Dame acciones concretas para 5 minutos.',
+  anclaje: 'Dame 10 frases de anclaje muy cortas, en español, para repetir durante un pico de craving. Tono directo, sin juicio, centrado en no actuar durante los próximos minutos.'
+};
+const aiPromptList = document.getElementById('aiPromptList');
+const copyAiPromptBtn = document.getElementById('copyAiPromptBtn');
+const openPerplexityBtn = document.getElementById('openPerplexityBtn');
+function getSelectedAiPrompt(){ const active = aiPromptList?.querySelector('.ai-prompt-option.active'); return AI_PROMPTS[(active && active.dataset.aiPrompt) || 'craving']; }
+function selectAiPrompt(btn){ aiPromptList.querySelectorAll('.ai-prompt-option').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-checked','false'); }); btn.classList.add('active'); btn.setAttribute('aria-checked','true'); }
+async function copySelectedAiPrompt(showDone = true){ const text = getSelectedAiPrompt(); try { await navigator.clipboard.writeText(text); if (showDone) showToast('Prompt copiado ✓', 'success'); } catch { window.prompt('Copia este prompt:', text); } }
+if (aiPromptList && copyAiPromptBtn && openPerplexityBtn) {
+  aiPromptList.addEventListener('click', e => { const btn = e.target.closest('.ai-prompt-option'); if (btn) selectAiPrompt(btn); });
+  aiPromptList.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const btn = e.target.closest('.ai-prompt-option'); if (btn) { e.preventDefault(); selectAiPrompt(btn); } } });
+  copyAiPromptBtn.addEventListener('click', () => copySelectedAiPrompt(true));
+  openPerplexityBtn.addEventListener('click', async () => { await copySelectedAiPrompt(true); window.open('https://www.perplexity.ai/', '_blank', 'noopener,noreferrer'); });
+}
 // ─── EXPORT / IMPORT (backup) ─────────────────────────────────────────────────
 const EXPORT_KEYS = ['ancla-log', 'ancla-custom-triggers', 'ancla-contact', 'ancla-message', 'ancla-breath-rounds', 'ancla-theme'];
 const importFileInput = document.getElementById('importFile');
@@ -1500,6 +1580,10 @@ function importData(file) {
 document.getElementById('exportBtn').addEventListener('click', exportData);
 document.getElementById('importBtn').addEventListener('click', () => importFileInput.click());
 importFileInput.addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if (f) importData(f); e.target.value = ''; });
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshTimerAfterBackground(); });
+window.addEventListener('focus', refreshTimerAfterBackground);
+window.addEventListener('pageshow', refreshTimerAfterBackground);
 document.getElementById('topBtn').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 function triggerVibration(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
 renderCustomTriggers();
